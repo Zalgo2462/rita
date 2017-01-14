@@ -10,6 +10,7 @@ import (
 
 	"github.com/alecthomas/template"
 	"github.com/ocmdev/rita/config"
+	"github.com/ocmdev/rita/datatypes/structure"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
 )
@@ -68,17 +69,14 @@ func showBlacklisted(c *cli.Context) error {
 	coll.Find(nil).All(&allres)
 
 	if globalSourcesFlag {
-		for _, res := range allres {
-			res.Sources = ""
-			cons := conf.Session.DB(c.String("database")).C(conf.System.StructureConfig.ConnTable)
-			siter := cons.Find(bson.M{"id_resp_h": res.Host}).Iter()
+		for i, _ := range allres {
+			allres[i].Sources = ""
+			cons := conf.Session.DB(c.String("database")).C(conf.System.StructureConfig.UniqueConnTable)
+			siter := cons.Find(bson.M{"dst": allres[i].Host}).Iter()
 
-			var srcStruct struct {
-				Src string `bson:"id_origin_h"`
-			}
-
+			var srcStruct structure.UniqueConnection
 			for siter.Next(&srcStruct) {
-				res.Sources += srcStruct.Src + " "
+				allres[i].Sources += srcStruct.Src + " "
 			}
 		}
 	}
@@ -96,7 +94,7 @@ func showBlacklisted(c *cli.Context) error {
 // showBlacklisted prints all blacklisted for a given database
 func showBlacklistedHuman(allres blresults) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	headers := []string{"Blacklisted Host", "Connections"}
+	headers := []string{"Blacklisted Host", "Score"}
 	if globalSourcesFlag {
 		headers = append(headers, "Sources")
 	}
@@ -118,7 +116,7 @@ func showBlacklistedHuman(allres blresults) error {
 func showBlacklistedCsv(allres blresults) error {
 	tmpl := "{{.Host}}," + `{{.Score}}`
 	if globalSourcesFlag {
-		tmpl += ", {{.Sources}}"
+		tmpl += ",{{.Sources}}"
 	}
 	tmpl += "\n"
 	out, err := template.New("bl").Parse(tmpl)
