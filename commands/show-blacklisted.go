@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/alecthomas/template"
 	"github.com/ocmdev/rita/config"
+	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
 )
 
@@ -57,33 +59,16 @@ func showBlacklisted(c *cli.Context) error {
 	if c.String("database") == "" {
 		return cli.NewExitError("Specify a database with -d", -1)
 	}
-
-	if humanreadable {
-		return showBlacklistedHuman(c)
-	}
-
-	tmpl := "{{.Host}}," + `{{.Score}}`
-	if globalSourcesFlag {
-		tmpl += ", {{.Sources}}\n"
-	} else {
-		tmpl += "\n"
-	}
-	out, err := template.New("bl").Parse(tmpl)
-	if err != nil {
-		panic(err)
-	}
-
 	conf := config.InitConfig("")
 	conf.System.DB = c.String("database")
 
-	var res blresult
 	var allres blresults
 
 	coll := conf.Session.DB(c.String("database")).C(conf.System.BlacklistedConfig.BlacklistTable)
-	iter := coll.Find(nil).Iter()
+	coll.Find(nil).All(&allres)
 
-	for iter.Next(&res) {
-		if globalSourcesFlag {
+	if globalSourcesFlag {
+		for _, res := range allres {
 			res.Sources = ""
 			cons := conf.Session.DB(c.String("database")).C(conf.System.StructureConfig.ConnTable)
 			siter := cons.Find(bson.M{"id_resp_h": res.Host}).Iter()
@@ -93,57 +78,60 @@ func showBlacklisted(c *cli.Context) error {
 			}
 
 			for siter.Next(&srcStruct) {
-				res.Sources += srcStruct.Src + "; "
+				res.Sources += srcStruct.Src + " "
 			}
 		}
-		allres = append(allres, res)
 	}
 
 	sort.Sort(allres)
 
-	for _, res := range allres {
-		err := out.Execute(os.Stdout, res)
-		if err != nil {
-			fmt.Fprintf(os.Stdout, "ERROR: Template failure: %s\n", err.Error())
-		}
+	if humanreadable {
+		return showBlacklistedHuman(allres)
 	}
-	return nil
+
+	return showBlacklistedCsv(allres)
 }
 
 // TODO: Convert this over to tablewriter
 // showBlacklisted prints all blacklisted for a given database
-func showBlacklistedHuman(c *cli.Context) error {
+func showBlacklistedHuman(allres blresults) error {
+	table := tablewriter.NewWriter(os.Stdout)
+	headers := []string{"Blacklisted Host", "Connections"}
+	if globalSourcesFlag {
+		headers = append(headers, "Sources")
+	}
+	table.SetHeader(headers)
+	i := func(i int) string {
+		return strconv.Itoa(i)
+	}
+	for _, res := range allres {
+		data := []string{res.Host, i(res.Score)}
+		if globalSourcesFlag {
+			data = append(data, res.Sources)
+		}
+		table.Append(data)
+	}
+	table.Render()
+	return nil
+}
 
-	cols := "            host\tscore\n"
-	cols += "----------------\t-----\n"
-	tmpl := "{{.Host}}\t" + `{{.Score | printf "%5d"}}` + "\n"
+func showBlacklistedCsv(allres blresults) error {
+	tmpl := "{{.Host}}," + `{{.Score}}`
+	if globalSourcesFlag {
+		tmpl += ", {{.Sources}}"
+	}
+	tmpl += "\n"
 	out, err := template.New("bl").Parse(tmpl)
 	if err != nil {
 		panic(err)
 	}
-
-	conf := config.InitConfig("")
-	conf.System.DB = c.String("database")
-
-	var res blresult
-	var allres blresults
-
-	coll := conf.Session.DB(c.String("database")).C(conf.System.BlacklistedConfig.BlacklistTable)
-	iter := coll.Find(nil).Iter()
-
-	fmt.Printf(cols)
-	for iter.Next(&res) {
-		res.Host = padAddr(res.Host)
-		allres = append(allres, res)
-	}
-
-	sort.Sort(allres)
-
+	var e error = nil
 	for _, res := range allres {
 		err := out.Execute(os.Stdout, res)
 		if err != nil {
 			fmt.Fprintf(os.Stdout, "ERROR: Template failure: %s\n", err.Error())
+			e = err
 		}
 	}
-	return nil
+	return e
 }
