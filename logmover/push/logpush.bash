@@ -13,6 +13,9 @@ USER=""
 # The address of the RITA server
 REMOTE=""
 
+# SSH Port
+PORT=22
+
 # The location of the RITA logs directory
 REMOTE_LOG_DIR=""
 
@@ -45,12 +48,12 @@ SCRIPT='( flock -s 9; sleep infinity & echo $!; wait )9>'"$LOCK"
 LOCK_PIPE=".lock_pipe"
 
 # We want to transfer yesterday's logs
-TX_DIR=$LOCAL_LOG_DIR/$(date +%Y-%m-%d)
+TX_DIR=$LOCAL_LOG_DIR/$(date --date="1 day ago" +%Y-%m-%d)
 
 # Check if yesterday's logs are available
 if [ ! -d $TX_DIR ]
 then
-  echo "No local folder found! Using: $TX_DIR"
+  echo "$TX_DIR not found!"
   exit 1
 fi
 
@@ -67,7 +70,7 @@ fi
 # and read output into the channel
 # Stream redirection directly into the pipe doesn't work since
 # bash will wait until ssh to forward the output
-echo $SCRIPT | ssh -i $KEYFILE $USER@$REMOTE "/bin/bash" | {
+echo $SCRIPT | ssh -i $KEYFILE -p $PORT $USER@$REMOTE "/bin/bash" | {
   read line
   echo $line > $LOCK_PIPE
 } &
@@ -77,7 +80,7 @@ echo "Synchronizing"
 lock_pid=$(<$LOCK_PIPE)
 echo $lock_pid
 echo "Writing"
-rsync -a -e "ssh -i $KEYFILE" $TX_DIR $USER@$REMOTE:$DEST_DIR
+rsync -a -e "ssh -i $KEYFILE -p $PORT" $TX_DIR $USER@$REMOTE:$DEST_DIR
 
 # kill the sleep process and unlock
-ssh -i $KEYFILE $USER@$REMOTE "kill $lock_pid"
+ssh -i $KEYFILE -p $PORT $USER@$REMOTE "kill $lock_pid"
