@@ -1,19 +1,26 @@
 import nltk
 import string
 import sys
+import json
+import unicodedata
 from collections import Counter
 from nltk.corpus import brown
 from nltk.corpus import gutenberg
 from nltk.corpus import twitter_samples
 N = 2
+OUT_FILE = "ngrams.json"
 RemovePunctTable = {ord(c): None for c in string.punctuation+string.whitespace}
 
 #common_urls.txt gathered from http://s3.amazonaws.com/alexa-static/top-1m.csv.zip
 
-if len(sys.argv) > 1:
+if len(sys.argv) >= 2:
 	N = int(sys.argv[1])
 
+if len(sys.argv) >= 3:
+	OUT_FILE = sys.argv[2]
+
 def cleanString(strng):
+	strng = str(unicodedata.normalize('NFKD', strng).encode('ascii','ignore'))
 	return strng.translate(RemovePunctTable).lower()
 
 def getNGrams(source, n):
@@ -73,8 +80,7 @@ with open('common_urls.txt') as urls:
 		
 
 nFreq = counterToFreq(brownCnt + gutenCnt + twitterCnt + urlCnt)
-#nFreq = counterToFreq(urlCnt)
-for w in sorted(nFreq, key=nFreq.get):
-	print(w, nFreq[w])
+nFreq["ngram_size"] = N
 
-
+with open(OUT_FILE, 'w') as out:
+	json.dump(nFreq, out)

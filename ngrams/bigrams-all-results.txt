@@ -1,0 +1,8 @@
+Common urls 12564/56224
+false positive: .22
+true negative: .78
+
+Zeus 56224/56224
+true positive: 1.0
+false negative: 0
+
