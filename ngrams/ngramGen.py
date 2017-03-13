@@ -64,7 +64,7 @@ print("Analyzing alexa 1 million urls")
 #we handle urls a bit differently to prevent m_ from biasing the results
 urlCnt = Counter({})
 loader = 0
-with open('common_urls.txt') as urls:
+with open('common_urls_www.txt') as urls:
 	for url in urls:
 		cnt = Counter(
 			getNGrams(
