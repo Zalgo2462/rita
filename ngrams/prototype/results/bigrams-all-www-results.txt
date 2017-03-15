@@ -1,0 +1,8 @@
+Conficker
+43908/50000
+true positive: .88
+false negative: .12
+
+Zeus
+true positive: 1.0
+false negative 0.0
