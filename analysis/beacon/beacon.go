@@ -192,8 +192,11 @@ func (t *Beacon) collect() {
 			var conn data.Conn
 			connIter := session.DB(t.db).
 				C(t.resources.System.StructureConfig.ConnTable).
-				Find(bson.M{"id_origin_h": uconn.Src, "id_resp_h": uconn.Dst}).
-				Iter()
+				Find(bson.M{
+					"id_origin_h": uconn.Src,
+					"id_resp_h":   uconn.Dst,
+					"conn_state":  "SF", //only successful connections
+				}).Iter()
 
 			for connIter.Next(&conn) {
 				newInput.ts = append(newInput.ts, conn.Ts)
