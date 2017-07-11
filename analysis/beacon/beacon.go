@@ -202,6 +202,12 @@ func (t *Beacon) collect() {
 				newInput.ts = append(newInput.ts, conn.Ts)
 				newInput.orig_ip_bytes = append(newInput.orig_ip_bytes, conn.OriginIPBytes)
 			}
+
+			//if the number of SUCCESSFUL connections is less than the threshold, skip
+			if len(newInput.ts) < t.defaultConnThresh {
+				continue
+			}
+
 			t.analysisChannel <- newInput
 		}
 		host, more = <-t.collectChannel
