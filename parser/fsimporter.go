@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -231,6 +232,8 @@ func parseFiles(indexedFiles []*fpt.IndexedFile, parsingThreads int,
 				logger.WithFields(log.Fields{
 					"path": indexedFiles[j].Path,
 				}).Info("Finished parsing file")
+
+				runtime.GC()
 			}
 			wg.Done()
 		}(indexedFiles, logger, parsingWG, i, parsingThreads, n)

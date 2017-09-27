@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ocmdev/rita/database"
+	"github.com/ocmdev/rita/parser/parsetypes"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -197,14 +198,16 @@ func (writer *collectionWriter) bulkInsert() {
 	defer writer.writerWG.Done()
 	defer writer.session.Close()
 
-	buffer := make([]interface{}, 0, writer.bufferSize)
+	buffer := make([]parsetypes.BroData, 0, writer.bufferSize)
 	collection := writer.session.DB(writer.targetDatabase).C(writer.targetCollection)
 
 	for data := range writer.writeChannel {
 		if len(buffer) == writer.bufferSize {
 			bulk := collection.Bulk()
 			bulk.Unordered()
-			bulk.Insert(buffer...)
+			for _, data := range buffer {
+				bulk.Insert(data)
+			}
 			_, err := bulk.Run()
 			if err != nil {
 				writer.logger.WithFields(log.Fields{
@@ -213,6 +216,11 @@ func (writer *collectionWriter) bulkInsert() {
 					"error":             err.Error(),
 				}).Error("Unable to insert bulk data in MongoDB")
 			}
+
+			for _, data := range buffer {
+				data.Free()
+			}
+
 			buffer = buffer[:0]
 		}
 		buffer = append(buffer, data.BroData)
@@ -221,7 +229,10 @@ func (writer *collectionWriter) bulkInsert() {
 	//guaranteed to be at least 1 line in the buffer
 	bulk := collection.Bulk()
 	bulk.Unordered()
-	bulk.Insert(buffer...)
+	for _, data := range buffer {
+		bulk.Insert(data)
+	}
+
 	_, err := bulk.Run()
 	if err != nil {
 		writer.logger.WithFields(log.Fields{
@@ -229,5 +240,8 @@ func (writer *collectionWriter) bulkInsert() {
 			"target_collection": writer.targetCollection,
 			"error":             err.Error(),
 		}).Error("Unable to insert bulk data in MongoDB")
+	}
+	for _, data := range buffer {
+		data.Free()
 	}
 }

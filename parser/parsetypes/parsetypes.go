@@ -7,6 +7,7 @@ type BroData interface {
 	TargetCollection(*config.StructureTableCfg) string
 	Indices() []string
 	Normalize()
+	Free()
 }
 
 //NewBroDataFactory creates a new BroData based on the string
@@ -15,15 +16,15 @@ func NewBroDataFactory(fileType string) func() BroData {
 	switch fileType {
 	case "conn":
 		return func() BroData {
-			return &Conn{}
+			return NewConn()
 		}
 	case "dns":
 		return func() BroData {
-			return &DNS{}
+			return NewDNS()
 		}
 	case "http":
 		return func() BroData {
-			return &HTTP{}
+			return NewHTTP()
 		}
 	}
 	return nil

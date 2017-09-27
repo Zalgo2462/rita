@@ -1,9 +1,21 @@
 package parsetypes
 
 import (
+	"reflect"
+	"sync"
+
 	"github.com/ocmdev/rita/config"
 	"gopkg.in/mgo.v2/bson"
 )
+
+var dnsPool = sync.Pool{
+	New: func() interface{} { return &DNS{} },
+}
+
+// NewDNS creates a new DNS object from the pool
+func NewDNS() *DNS {
+	return dnsPool.Get().(*DNS)
+}
 
 // DNS provides a data structure for entries in the bro DNS log
 type DNS struct {
@@ -58,6 +70,13 @@ type DNS struct {
 	TTLs []float64 `bson:"TTLs" bro:"TTLs" brotype:"vector[interval]"`
 	// Rejected indicates if this query was rejected or not
 	Rejected bool `bson:"rejected" bro:"rejected" brotype:"bool"`
+}
+
+//Free zeroes the object and places it in a pool for reuse
+func (in *DNS) Free() {
+	p := reflect.ValueOf(in).Elem()
+	p.Set(reflect.Zero(p.Type()))
+	dnsPool.Put(in)
 }
 
 //TargetCollection returns the mongo collection this entry should be inserted

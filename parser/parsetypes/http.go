@@ -2,12 +2,23 @@ package parsetypes
 
 import (
 	"net/url"
+	"reflect"
+	"sync"
+
+	"strings"
 
 	"github.com/ocmdev/rita/config"
 	"gopkg.in/mgo.v2/bson"
 )
 
-import "strings"
+var httpPool = sync.Pool{
+	New: func() interface{} { return &HTTP{} },
+}
+
+// NewHTTP creates a new HTTP object from the pool
+func NewHTTP() *HTTP {
+	return httpPool.Get().(*HTTP)
+}
 
 // HTTP provides a data structure for entries in bro's HTTP log file
 type HTTP struct {
@@ -74,6 +85,13 @@ type HTTP struct {
 	RespFilenames []string `bson:"resp_filenames" bro:"resp_filenames" brotype:"vector[string]"`
 	// RespMimeTypes contains an ordered vector of unique MIME entities in the HTTP response body
 	RespMimeTypes []string `bson:"resp_mime_types" bro:"resp_mime_types" brotype:"vector[string]"`
+}
+
+//Free zeroes the object and places it in a pool for reuse
+func (line *HTTP) Free() {
+	p := reflect.ValueOf(line).Elem()
+	p.Set(reflect.Zero(p.Type()))
+	httpPool.Put(line)
 }
 
 //TargetCollection returns the mongo collection this entry should be inserted

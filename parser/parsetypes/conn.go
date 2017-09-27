@@ -1,9 +1,21 @@
 package parsetypes
 
 import (
+	"reflect"
+	"sync"
+
 	"github.com/ocmdev/rita/config"
 	"gopkg.in/mgo.v2/bson"
 )
+
+var connPool = sync.Pool{
+	New: func() interface{} { return &Conn{} },
+}
+
+// NewConn creates a new Conn object from the pool
+func NewConn() *Conn {
+	return connPool.Get().(*Conn)
+}
 
 type (
 	// Conn provides a data structure for bro's connection data
@@ -54,6 +66,13 @@ type (
 		TunnelParents []string `bson:"tunnel_parents" bro:"tunnel_parents" brotype:"set[string]"`
 	}
 )
+
+//Free zeroes the object and places it in a pool for reuse
+func (in *Conn) Free() {
+	p := reflect.ValueOf(in).Elem()
+	p.Set(reflect.Zero(p.Type()))
+	connPool.Put(in)
+}
 
 //TargetCollection returns the mongo collection this entry should be inserted
 //into

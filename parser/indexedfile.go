@@ -71,6 +71,7 @@ func newIndexedFile(filePath string, config *config.Config,
 
 	//parse first line
 	line := parseLine(scanner.Text(), header, fieldMap, broDataFactory, logger)
+	defer line.Free()
 	if line == nil {
 		fileHandle.Close()
 		return toReturn, errors.New("Could not parse first line of file for time")
